@@ -1,9 +1,9 @@
-# project_title
+# CSC1107 Operating Systems Project
 
 > [!NOTE]
 > WIP, remove this note when project is ready.
 
-project_description
+Linux Kernel Module for tracking USB file transfer activity.
 
 ---
 
@@ -13,6 +13,20 @@ project_description
   - scope_description
 
 ## Usage
+
+### Cross-compilation
+
+```sh
+./get-pi-headers.sh [PI_KERNEL_VERSION] [PI_HOST]
+
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KERNELDIR=/workspaces/CSC1107/pi-kernel
+```
+- `./get-pi-headers.sh`
+  - clone rpi-6.12.y, use Pi 4 default config
+- `./get-pi-headers.sh 6.12.75`
+  - clone specific version branch
+- `./get-pi-headers.sh 6.12.75 pi@192.168.1.10`
+  - also scp .config from Pi for exact match
 
 ### runtime_executable
 
@@ -31,7 +45,7 @@ project_description
 - [VS Code](https://code.visualstudio.com/download)
   - [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
 
-> [!WARNING]  
+> [!WARNING]
 > Do not use GitHub Desktop! All interactions (files, git, runtime, etc.) should be done through the Dev Container within VS Code.
 
 ### Installation
@@ -39,23 +53,17 @@ project_description
 1. Clone the repo
 
    ```sh
-   git clone git@github.com:10x-Slackers/repo_name.git
+   git clone git@github.com:commit2main/CSC1107.git
    ```
 
 2. Open the repository in VS Code
 
    ```sh
-   code repo_name/
+   code CSC1107/
    ```
 
 3. Click on the "Re-open in Dev Container" prompt
-4. Install the pre-commit hooks
-
-   ```sh
-   pre-commit install
-   ```
-
-5. Start working!
+4. Start working!
 
 ## Developer Tooling
 

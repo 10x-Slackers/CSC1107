@@ -1,0 +1,30 @@
+{
+  "configurations": [
+    {
+      "name": "Linux ARM64 (RPi Cross-Compile)",
+      "includePath": [
+        "${workspaceFolder}/pi-kernel/arch/arm64/include",
+        "${workspaceFolder}/pi-kernel/arch/arm64/include/generated",
+        "${workspaceFolder}/pi-kernel/arch/arm64/include/generated/uapi",
+        "${workspaceFolder}/pi-kernel/arch/arm64/include/uapi",
+        "${workspaceFolder}/pi-kernel/include",
+        "${workspaceFolder}/pi-kernel/include/generated",
+        "${workspaceFolder}/pi-kernel/include/generated/uapi",
+        "${workspaceFolder}/pi-kernel/include/uapi",
+        "${workspaceFolder}/kernel"
+      ],
+      "defines": [
+        "__KERNEL__",
+        "MODULE"
+      ],
+      "compilerPath": "/usr/bin/aarch64-linux-gnu-gcc",
+      "cStandard": "gnu11",
+      "intelliSenseMode": "linux-gcc-arm64",
+      "forcedInclude": [
+        "${workspaceFolder}/pi-kernel/include/linux/kconfig.h",
+        "${workspaceFolder}/pi-kernel/include/linux/compiler_types.h"
+      ]
+    }
+  ],
+  "version": 4
+}
