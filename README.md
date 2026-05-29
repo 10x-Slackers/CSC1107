@@ -22,10 +22,10 @@ Linux Kernel Module for tracking USB file transfer activity.
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KERNELDIR=/workspaces/CSC1107/pi-kernel
 ```
 - `./get-pi-headers.sh`
-  - clone rpi-6.18.y, use Pi 4 default config
-- `./get-pi-headers.sh 6.18.23`
+  - clone rpi-6.12.y, use Pi 4 default config
+- `./get-pi-headers.sh 6.12.75`
   - clone specific version branch
-- `./get-pi-headers.sh 6.18.23 pi@192.168.1.10`
+- `./get-pi-headers.sh 6.12.75 pi@192.168.1.10`
   - also scp .config from Pi for exact match
 
 ### runtime_executable
