@@ -18,6 +18,7 @@
         "MODULE"
       ],
       "compilerPath": "/usr/bin/aarch64-linux-gnu-gcc",
+      "compilerArgs": ["-nostdinc"],
       "cStandard": "gnu11",
       "intelliSenseMode": "linux-gcc-arm64",
       "forcedInclude": [
