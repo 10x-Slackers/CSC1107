@@ -13,7 +13,7 @@ if [ -n "$PI_KERNEL_VERSION" ]; then
     MAJOR_MINOR=$(echo "$PI_KERNEL_VERSION" | sed 's/\([0-9]*\.[0-9]*\).*/\1/')
     BRANCH="rpi-${MAJOR_MINOR}.y"
 else
-    BRANCH="rpi-6.12.y"
+    BRANCH="rpi-6.18.y"
 fi
 
 echo "=== RPi Kernel Headers for Cross-Compilation ==="
