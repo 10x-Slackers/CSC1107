@@ -1,14 +1,13 @@
 #include <linux/atomic.h>
 #include <linux/blkdev.h>
 #include <linux/fs.h>
-#include <linux/genhd.h>
 #include <linux/init.h>
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
+#include <linux/miscdevice.h>
 #include <linux/module.h>
 #include <linux/mount.h>
-#include <linux/proc_fs.h>
 #include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -16,7 +15,13 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
-#define XFERMON_PROC_NAME "xfermon"
+#if defined(CONFIG_ARM64) && !defined(PT_REGS_PARM1)
+#define PT_REGS_PARM1(regs) ((regs)->regs[0])
+#define PT_REGS_PARM2(regs) ((regs)->regs[1])
+#define PT_REGS_PARM3(regs) ((regs)->regs[2])
+#endif
+
+#define XFERMON_DEVICE_NAME "xfermon"
 #define XFERMON_INPUT_MAX 96
 #define XFERMON_LOG_COUNT 64
 #define XFERMON_DEVICE_LEN 32
@@ -30,7 +35,6 @@ struct xfermon_event {
   char reason[XFERMON_REASON_LEN];
 };
 
-static struct proc_dir_entry *xfermon_proc;
 static struct kprobe vfs_write_probe;
 static atomic64_t transfer_count;
 static atomic64_t transfer_bytes;
@@ -165,8 +169,8 @@ static void xfermon_reset(void) {
   spin_unlock_irqrestore(&event_lock, flags);
 }
 
-static ssize_t xfermon_proc_read(struct file *file, char __user *buffer,
-                                 size_t count, loff_t *pos) {
+static ssize_t xfermon_read(struct file *file, char __user *buffer,
+                            size_t count, loff_t *pos) {
   char *output;
   unsigned long flags;
   unsigned long uptime_seconds;
@@ -187,13 +191,16 @@ static ssize_t xfermon_proc_read(struct file *file, char __user *buffer,
                    "bytes: %llu\n"
                    "alerts: %llu\n"
                    "alert_threshold_mb: %u\n"
+                   "device_node: /dev/%s\n"
+                   "removable_detection: gendisk-removable-flag\n"
+                   "byte_accounting: requested_vfs_write_bytes\n"
                    "uptime_seconds: %lu\n"
                    "commands: reset | simulate <bytes> [device]\n"
                    "recent_events:\n",
                    include_all_devices ? "all-devices-test" : "removable-only",
                    atomic64_read(&transfer_count),
                    atomic64_read(&transfer_bytes), atomic64_read(&alert_count),
-                   alert_threshold_mb, uptime_seconds);
+                   alert_threshold_mb, XFERMON_DEVICE_NAME, uptime_seconds);
 
   spin_lock_irqsave(&event_lock, flags);
   for (i = 0; i < event_total && len < PAGE_SIZE - 128; i++) {
@@ -219,8 +226,8 @@ static ssize_t xfermon_proc_read(struct file *file, char __user *buffer,
   return len;
 }
 
-static ssize_t xfermon_proc_write(struct file *file, const char __user *buffer,
-                                  size_t count, loff_t *pos) {
+static ssize_t xfermon_write(struct file *file, const char __user *buffer,
+                             size_t count, loff_t *pos) {
   char input[XFERMON_INPUT_MAX];
   char command[16] = {0};
   char device[XFERMON_DEVICE_LEN] = "simulated";
@@ -253,9 +260,18 @@ static ssize_t xfermon_proc_write(struct file *file, const char __user *buffer,
   return -EINVAL;
 }
 
-static const struct proc_ops xfermon_proc_ops = {
-    .proc_read = xfermon_proc_read,
-    .proc_write = xfermon_proc_write,
+static const struct file_operations xfermon_fops = {
+    .owner = THIS_MODULE,
+    .read = xfermon_read,
+    .write = xfermon_write,
+    .llseek = no_llseek,
+};
+
+static struct miscdevice xfermon_misc_device = {
+    .minor = MISC_DYNAMIC_MINOR,
+    .name = XFERMON_DEVICE_NAME,
+    .fops = &xfermon_fops,
+    .mode = 0666,
 };
 
 static int __init xfermon_init(void) {
@@ -264,10 +280,11 @@ static int __init xfermon_init(void) {
   started_at = jiffies;
   xfermon_reset();
 
-  xfermon_proc = proc_create(XFERMON_PROC_NAME, 0644, NULL, &xfermon_proc_ops);
-  if (!xfermon_proc) {
-    printk(KERN_ERR "xfermon: failed to create /proc/%s\n", XFERMON_PROC_NAME);
-    return -ENOMEM;
+  ret = misc_register(&xfermon_misc_device);
+  if (ret) {
+    printk(KERN_ERR "xfermon: failed to create /dev/%s ret=%d\n",
+           XFERMON_DEVICE_NAME, ret);
+    return ret;
   }
 
   memset(&vfs_write_probe, 0, sizeof(vfs_write_probe));
@@ -276,14 +293,15 @@ static int __init xfermon_init(void) {
 
   ret = register_kprobe(&vfs_write_probe);
   if (ret) {
-    proc_remove(xfermon_proc);
+    misc_deregister(&xfermon_misc_device);
     printk(KERN_ERR "xfermon: failed to register vfs_write kprobe ret=%d\n",
            ret);
     return ret;
   }
 
   printk(KERN_INFO
-         "xfermon: module loaded mode=%s alert_threshold_mb=%u\n",
+         "xfermon: module loaded device=/dev/%s mode=%s alert_threshold_mb=%u\n",
+         XFERMON_DEVICE_NAME,
          include_all_devices ? "all-devices-test" : "removable-only",
          alert_threshold_mb);
   return 0;
@@ -291,7 +309,7 @@ static int __init xfermon_init(void) {
 
 static void __exit xfermon_exit(void) {
   unregister_kprobe(&vfs_write_probe);
-  proc_remove(xfermon_proc);
+  misc_deregister(&xfermon_misc_device);
   printk(KERN_INFO "xfermon: module unloaded\n");
 }
 

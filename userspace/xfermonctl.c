@@ -1,48 +1,117 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#define XFERMON_PROC_PATH "/proc/xfermon"
+#define XFERMON_DEVICE_PATH "/dev/xfermon"
+
+static int write_all(int fd, const char *buffer, size_t length) {
+  size_t written = 0;
+
+  while (written < length) {
+    ssize_t result = write(fd, buffer + written, length - written);
+    if (result < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      return -1;
+    }
+    if (result == 0) {
+      errno = EIO;
+      return -1;
+    }
+    written += (size_t)result;
+  }
+
+  return 0;
+}
+
+static int write_cstr(int fd, const char *text) {
+  return write_all(fd, text, strlen(text));
+}
+
+static void print_open_error(const char *operation) {
+  char message[256];
+  int length =
+      snprintf(message, sizeof(message), "xfermonctl: cannot %s %s: %s\n",
+               operation, XFERMON_DEVICE_PATH, strerror(errno));
+
+  if (length > 0) {
+    write_all(STDERR_FILENO, message, (size_t)length);
+  }
+}
 
 static int print_stats(void) {
-  FILE *file = fopen(XFERMON_PROC_PATH, "r");
-  char line[256];
+  int fd = open(XFERMON_DEVICE_PATH, O_RDONLY);
+  char buffer[512];
 
-  if (!file) {
-    fprintf(stderr, "xfermonctl: cannot open %s: %s\n", XFERMON_PROC_PATH,
-            strerror(errno));
-    fprintf(stderr, "xfermonctl: load the kernel module first with insmod.\n");
+  if (fd < 0) {
+    print_open_error("open");
+    write_cstr(STDERR_FILENO,
+               "xfermonctl: load the kernel module first with insmod.\n");
     return 1;
   }
 
-  while (fgets(line, sizeof(line), file)) {
-    fputs(line, stdout);
+  for (;;) {
+    ssize_t bytes = read(fd, buffer, sizeof(buffer));
+    if (bytes < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      print_open_error("read");
+      close(fd);
+      return 1;
+    }
+
+    if (bytes == 0) {
+      break;
+    }
+
+    if (write_all(STDOUT_FILENO, buffer, (size_t)bytes) < 0) {
+      close(fd);
+      return 1;
+    }
   }
 
-  fclose(file);
+  close(fd);
   return 0;
 }
 
 static int send_command(const char *command) {
-  FILE *file = fopen(XFERMON_PROC_PATH, "w");
+  int fd = open(XFERMON_DEVICE_PATH, O_WRONLY);
+  char buffer[160];
+  int length;
 
-  if (!file) {
-    fprintf(stderr, "xfermonctl: cannot write to %s: %s\n", XFERMON_PROC_PATH,
-            strerror(errno));
-    fprintf(stderr, "xfermonctl: try running this command with sudo.\n");
+  if (fd < 0) {
+    print_open_error("write to");
+    write_cstr(STDERR_FILENO,
+               "xfermonctl: try running this command with sudo.\n");
     return 1;
   }
 
-  if (fprintf(file, "%s\n", command) < 0) {
-    fprintf(stderr, "xfermonctl: failed to send command: %s\n",
-            strerror(errno));
-    fclose(file);
+  length = snprintf(buffer, sizeof(buffer), "%s\n", command);
+  if (length < 0 || (size_t)length >= sizeof(buffer)) {
+    write_cstr(STDERR_FILENO, "xfermonctl: command is too long.\n");
+    close(fd);
     return 1;
   }
 
-  fclose(file);
+  if (write_all(fd, buffer, (size_t)length) < 0) {
+    char message[160];
+    int message_length = snprintf(message, sizeof(message),
+                                  "xfermonctl: failed to send command: %s\n",
+                                  strerror(errno));
+
+    if (message_length > 0) {
+      write_all(STDERR_FILENO, message, (size_t)message_length);
+    }
+    close(fd);
+    return 1;
+  }
+
+  close(fd);
   return 0;
 }
 
@@ -54,7 +123,8 @@ static int simulate_transfer(const char *bytes, const char *device) {
   errno = 0;
   value = strtoull(bytes, &end, 10);
   if (errno || end == bytes || *end != '\0' || value == 0) {
-    fprintf(stderr, "xfermonctl: simulated bytes must be a positive number.\n");
+    write_cstr(STDERR_FILENO,
+               "xfermonctl: simulated bytes must be a positive number.\n");
     return 1;
   }
 
@@ -63,13 +133,19 @@ static int simulate_transfer(const char *bytes, const char *device) {
 }
 
 static void print_usage(const char *program) {
-  fprintf(stderr,
-          "Usage:\n"
-          "  %s stats\n"
-          "  %s watch <seconds>\n"
-          "  sudo %s simulate <bytes> [device]\n"
-          "  sudo %s reset\n",
-          program, program, program, program);
+  char message[512];
+  int length =
+      snprintf(message, sizeof(message),
+               "Usage:\n"
+               "  %s stats\n"
+               "  %s watch <seconds>\n"
+               "  sudo %s simulate <bytes> [device]\n"
+               "  sudo %s reset\n",
+               program, program, program, program);
+
+  if (length > 0) {
+    write_all(STDERR_FILENO, message, (size_t)length);
+  }
 }
 
 int main(int argc, char **argv) {
@@ -87,7 +163,8 @@ int main(int argc, char **argv) {
 
     seconds = atoi(argv[2]);
     if (seconds <= 0) {
-      fprintf(stderr, "xfermonctl: watch interval must be positive.\n");
+      write_cstr(STDERR_FILENO,
+                 "xfermonctl: watch interval must be positive.\n");
       return 1;
     }
 
@@ -97,8 +174,7 @@ int main(int argc, char **argv) {
         return ret;
       }
 
-      puts("");
-      fflush(stdout);
+      write_cstr(STDOUT_FILENO, "\n");
       sleep((unsigned int)seconds);
     }
   }
