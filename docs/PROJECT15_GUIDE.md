@@ -1,210 +1,285 @@
 # Project 15 Guide: USB File Transfer Activity Driver
 
-This project implements a Linux kernel module and a user-space viewer for
-monitoring write activity to removable USB storage devices.
+This project implements a Linux kernel module that monitors file write activity
+to removable USB storage devices. It creates a character device at
+`/dev/xfermon`, provides a user-space tool for reading transfer statistics, logs
+kernel events with `printk()`, and raises alerts for large copy activity.
 
-## What To Use
+## Project Files
 
-Use these tools:
+- `kernel/xfermon.c`: kernel module and character device driver.
+- `kernel/Makefile`: builds `kernel/xfermon.ko`.
+- `userspace/xfermonctl.c`: user-space app that communicates with
+  `/dev/xfermon` using `open()`, `read()`, `write()`, and `close()`.
+- `userspace/Makefile`: builds `userspace/xfermonctl`.
+- `scripts/demo.sh`: Bash script that automates build, load, test, log display,
+  and cleanup.
+- `Makefile`: builds both kernel and user-space components.
 
-- VS Code: edit the project files.
-- Ubuntu Linux VM: build, load, and test the kernel module without a Raspberry
-  Pi.
-- Raspberry Pi 4: final hardware demonstration when available.
+## How It Works
 
-Do not use normal Windows Command Prompt or PowerShell to load the module.
-Windows cannot load Linux kernel modules.
-
-## What The Project Contains
-
-- `kernel/xfermon.c`: kernel module.
-- `kernel/Makefile`: builds `xfermon.ko`.
-- `userspace/xfermonctl.c`: user-space app for showing logs and stats.
-- `userspace/Makefile`: builds `xfermonctl`.
-- `Makefile`: builds both kernel and user-space parts.
+```text
+User copies file to USB
+        |
+Linux vfs_write() runs
+        |
+xfermon kprobe sees the write
+        |
+xfermon finds the backing disk
+        |
+If the disk is removable, xfermon records the event
+        |
+xfermonctl reads the results from /dev/xfermon
+```
 
 The kernel module:
 
-- hooks `vfs_write`;
-- counts file write requests;
-- filters to removable block devices by default;
-- exposes stats and logs at `/proc/xfermon`;
-- logs events with `printk()`;
-- raises an alert when many bytes are written inside a 60-second window;
-- supports a local test mode with `include_all_devices=1`.
+- creates `/dev/xfermon` as a character device;
+- hooks `vfs_write()` using a kprobe;
+- finds the backing block device for file writes;
+- records transfer count, byte count, alerts, and recent events;
+- filters to removable block devices in normal mode;
+- supports `include_all_devices=1` for simulator and VM testing;
+- logs kernel events with `printk()`.
 
-## Testing Without Raspberry Pi
-
-Use an Ubuntu VM. VirtualBox, VMware, or another VM app is fine. The simplest
-path is Ubuntu Desktop in VirtualBox.
-
-Inside the Ubuntu VM, install build tools and matching kernel headers:
-
-```sh
-sudo apt update
-sudo apt install -y build-essential linux-headers-$(uname -r) git
-```
-
-Clone or copy this repository into the VM, then build it:
-
-```sh
-cd CSC1107
-make
-```
-
-You should see:
-
-- `kernel/xfermon.ko`
-- `userspace/xfermonctl`
-
-Load the module in VM test mode:
-
-```sh
-sudo insmod kernel/xfermon.ko include_all_devices=1 alert_threshold_mb=10
-```
-
-Check that it loaded:
-
-```sh
-lsmod | grep xfermon
-sudo dmesg | tail
-```
-
-Show current stats:
+The user-space application supports:
 
 ```sh
 ./userspace/xfermonctl stats
-```
-
-Test using the built-in simulator:
-
-```sh
+./userspace/xfermonctl watch 1
 sudo ./userspace/xfermonctl simulate 1048576 testdisk
-./userspace/xfermonctl stats
-sudo dmesg | tail
-```
-
-Test using a real file write inside the VM:
-
-```sh
-mkdir -p /tmp/xfermon-test
-dd if=/dev/zero of=/tmp/xfermon-test/bigfile.bin bs=1M count=20
-./userspace/xfermonctl stats
-sudo dmesg | tail
-```
-
-Because the module was loaded with `include_all_devices=1`, writes to the VM's
-normal disk are counted. This proves the write hook, statistics, user-space app,
-and kernel logging work before you have a USB drive or Raspberry Pi.
-
-Reset stats:
-
-```sh
 sudo ./userspace/xfermonctl reset
 ```
 
-Unload the module:
+## Setup On Raspberry Pi
+
+Install build tools and matching kernel headers.
+
+For Raspberry Pi OS:
 
 ```sh
-sudo rmmod xfermon
+sudo apt update
+sudo apt install -y raspberrypi-kernel-headers build-essential make git
 ```
 
-## Testing With A USB Drive On A Normal Linux Machine
-
-Load the module in real removable-device mode:
+For Debian on Raspberry Pi with an `rpt-rpi-v8` kernel:
 
 ```sh
-sudo insmod kernel/xfermon.ko
+sudo apt update
+sudo apt install -y build-essential make git linux-headers-rpi-v8
 ```
 
-Plug in and mount a USB thumb drive. Find its mount point:
+Check the current OS if unsure:
+
+```sh
+cat /etc/os-release
+uname -r
+```
+
+## Full USB Demo
+
+Go to the project folder:
+
+```sh
+cd ~/CSC1107
+```
+
+Build the module and user-space app:
+
+```sh
+make clean
+make
+```
+
+Expected build outputs:
+
+```text
+kernel/xfermon.ko
+userspace/xfermonctl
+```
+
+Plug in the USB drive and find its mount path:
 
 ```sh
 lsblk
 ```
 
-Copy a file to the mounted USB drive:
+Example USB output:
 
-```sh
-cp large-file.bin /media/$USER/YOUR_USB_NAME/
-sync
-```
-
-Show logs:
-
-```sh
-./userspace/xfermonctl stats
-sudo dmesg | tail
-```
-
-In normal mode, the module only counts writes where the backing disk is marked
-as removable by the Linux kernel.
-
-## Raspberry Pi Final Demo
-
-On the Raspberry Pi, install the matching headers if available:
-
-```sh
-sudo apt update
-sudo apt install -y raspberrypi-kernel-headers build-essential git
-```
-
-Build directly on the Pi:
-
-```sh
-make
+```text
+sda      8:0    1 14.9G  0 disk
+`-sda1   8:1    1 14.9G  0 part /media/linco/FELICE
 ```
 
 Load the module:
 
 ```sh
-sudo insmod kernel/xfermon.ko alert_threshold_mb=100
+sudo insmod kernel/xfermon.ko alert_threshold_mb=10
 ```
 
-Plug in a USB thumb drive, copy files to it, then show:
+Check that the character device exists:
+
+```sh
+ls -l /dev/xfermon
+```
+
+Expected output starts with `c`, meaning character device:
+
+```text
+crw-rw-rw- ... /dev/xfermon
+```
+
+Show initial stats:
 
 ```sh
 ./userspace/xfermonctl stats
-sudo dmesg | tail
 ```
 
-Unload after the demo:
+Create a 20 MiB test file:
+
+```sh
+dd if=/dev/zero of=large-file.bin bs=1M count=20
+```
+
+Copy the file to the USB drive and flush writes:
+
+```sh
+cp large-file.bin /media/linco/FELICE/
+sync
+```
+
+Show updated stats and kernel logs:
+
+```sh
+./userspace/xfermonctl stats
+sudo dmesg | tail -30
+```
+
+Unload the module when finished:
 
 ```sh
 sudo rmmod xfermon
+```
+
+Expected `xfermonctl stats` output:
+
+```text
+status: active
+mode: removable-only
+transfers: 1
+bytes: 20971520
+alerts: 1
+alert_threshold_mb: 10
+device_node: /dev/xfermon
+removable_detection: gendisk-removable-flag
+byte_accounting: requested_vfs_write_bytes
+recent_events:
+  #1 age=0s device=sda bytes=20971520 reason=removable-write
+```
+
+The transfer count may be more than `1` because Linux can split one file copy
+into multiple write operations.
+
+Expected `dmesg` output:
+
+```text
+xfermon: module loaded device=/dev/xfermon mode=removable-only alert_threshold_mb=10
+xfermon: write device=sda bytes=... reason=removable-write
+xfermon: alert possible mass-copy behavior bytes_60s=...
+xfermon: module unloaded
 ```
 
 ## Demo Script
 
-For a no-USB VM demo:
+Use the Bash script for a shorter repeatable demo.
+
+Simulator test:
 
 ```sh
-make
-sudo insmod kernel/xfermon.ko include_all_devices=1 alert_threshold_mb=10
-./userspace/xfermonctl stats
-dd if=/dev/zero of=/tmp/xfermon-demo.bin bs=1M count=20
-./userspace/xfermonctl stats
-sudo dmesg | tail
-sudo rmmod xfermon
+bash scripts/demo.sh simulate
 ```
 
-For a real USB demo:
+Real USB test:
 
 ```sh
-make
-sudo insmod kernel/xfermon.ko
-cp large-file.bin /media/$USER/YOUR_USB_NAME/
+bash scripts/demo.sh usb /media/linco/FELICE
+```
+
+The script builds the project, loads the module, resets stats, performs the
+test, shows `/dev/xfermon` stats, shows recent `dmesg` logs, and unloads the
+module.
+
+## If USB Detection Does Not Increase Stats
+
+First confirm Linux sees the USB as removable:
+
+```sh
+lsblk
+```
+
+Look for `RM` as `1` and a mount path such as `/media/linco/FELICE`.
+
+Then run the all-device test mode:
+
+```sh
+sudo insmod kernel/xfermon.ko include_all_devices=1 alert_threshold_mb=10
+sudo ./userspace/xfermonctl reset
+dd if=/dev/zero of=/tmp/xfermon-test.bin bs=1M count=20
 sync
 ./userspace/xfermonctl stats
-sudo dmesg | tail
+sudo dmesg | tail -30
 sudo rmmod xfermon
 ```
 
-## Limitations To Mention In The Report
+If this works, the write hook and character device are working. The issue is
+only the removable-device filter, which depends on how the kernel marks the
+backing disk.
+
+## Requirement Mapping
+
+- Linux kernel module development: `kernel/xfermon.c` builds into
+  `kernel/xfermon.ko`.
+- Character device driver creation: the module creates `/dev/xfermon`.
+- Communication between user-space and kernel-space: `xfermonctl` reads and
+  writes `/dev/xfermon`.
+- Device node creation under `/dev`: `ls -l /dev/xfermon` proves this.
+- Proper use of `printk()` and `dmesg` logging: `sudo dmesg | tail -30` shows
+  `xfermon:` kernel messages.
+- Makefile-based module compilation: `make` builds the kernel module and
+  user-space app.
+- Safe loading and unloading: `sudo insmod kernel/xfermon.ko` loads the module,
+  and `sudo rmmod xfermon` unloads it.
+- Error handling and debugging: user input is validated, kernel copy failures
+  return Linux error codes, and module load failures clean up allocated
+  resources.
+- Demonstration on Raspberry Pi 4: run the USB demo on the Pi with a real USB
+  thumb drive.
+- Technical documentation and testing procedure: this guide documents the build,
+  test, demo, expected output, and known limitations.
+
+## Presentation Script
+
+```text
+First, we build the kernel module and user-space app using Makefile.
+Then we insert the module using insmod.
+The module creates /dev/xfermon, which proves device node creation.
+Our user-space app xfermonctl communicates with the driver through /dev/xfermon.
+When we copy a file to the USB drive, the driver hooks vfs_write, finds the
+backing disk, checks if it is removable, and records the transfer.
+The stats command shows transfer count, bytes, alerts, and recent events.
+Finally, dmesg shows printk logs from the kernel module.
+Then we remove the module using rmmod.
+```
+
+## Known Limitations
 
 - The module tracks normal filesystem writes through `vfs_write`.
 - It does not monitor raw writes directly to `/dev/sdX`.
-- It counts requested write sizes at the VFS layer, so it is a lightweight
-  auditing monitor rather than a forensic byte-perfect storage logger.
-- Removable-device detection depends on how the Linux kernel marks the disk.
-- `include_all_devices=1` is for VM testing only.
+- It counts requested write sizes at the VFS layer, not confirmed bytes written
+  to the physical storage device.
+- Removable-device detection depends on how the Linux kernel marks the disk, so
+  real USB detection can vary across adapters, kernels, and mount
+  configurations.
+- `include_all_devices=1` is for simulator and VM testing only.
+- The final acceptance test should be done on Raspberry Pi 4 with a real USB
+  thumb drive.

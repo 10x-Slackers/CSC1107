@@ -12,16 +12,17 @@ USB storage devices.
 Current milestone:
 
 - Kernel module loads and unloads cleanly.
-- Kernel module exposes transfer statistics at `/proc/xfermon`.
-- User-space tool reads `/proc/xfermon`.
+- Kernel module creates a character device node at `/dev/xfermon`.
+- User-space tool reads and writes `/dev/xfermon` using direct `open()`,
+  `read()`, `write()`, and `close()` system calls.
 - Local simulator hook lets you test the driver interface before USB monitoring
   is implemented.
+- Bash demo automation is provided in `scripts/demo.sh`.
 
 Next milestone:
 
-- Detect writes to removable USB block devices.
-- Record real transfer counts and byte totals.
-- Add suspicious mass-copy alerts.
+- Test on Raspberry Pi 4 with a real USB thumb drive.
+- Confirm whether the Pi kernel marks the target USB device as removable.
 
 ## Usage
 
@@ -66,6 +67,12 @@ make
 sudo insmod kernel/xfermon.ko
 ```
 
+Check that the device node was created:
+
+```sh
+ls -l /dev/xfermon
+```
+
 Read the driver statistics:
 
 ```sh
@@ -75,8 +82,14 @@ Read the driver statistics:
 Simulate a file transfer without a USB drive:
 
 ```sh
-echo 1048576 | sudo tee /proc/xfermon
+sudo ./userspace/xfermonctl simulate 1048576 testdisk
 ./userspace/xfermonctl
+```
+
+Run the automated no-USB demo:
+
+```sh
+bash scripts/demo.sh simulate
 ```
 
 Watch kernel logs:
@@ -91,8 +104,25 @@ Unload the module:
 sudo rmmod xfermon
 ```
 
-The simulator proves that the module, `/proc` interface, user-space app, and
-kernel logging work. It does not yet prove real USB transfer detection.
+The simulator proves that the module, `/dev/xfermon` device node, user-space
+app, and kernel logging work. It does not yet prove real USB transfer
+detection.
+
+For a real removable-storage demo on Raspberry Pi 4, mount a USB thumb drive and
+run:
+
+```sh
+bash scripts/demo.sh usb /media/$USER/YOUR_USB_NAME
+```
+
+## Known Limitations
+
+- Real USB detection depends on the Linux kernel marking the backing disk with
+  the removable-device flag.
+- The module counts the requested `vfs_write` size, not the confirmed number of
+  bytes that eventually reached the storage device.
+- The final hardware test should be run on Raspberry Pi 4 with a real USB thumb
+  drive.
 
 ## Getting Started
 
