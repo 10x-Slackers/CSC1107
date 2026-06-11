@@ -7,17 +7,14 @@
 #include <linux/kprobes.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
-#include <linux/mount.h>
 #include <linux/ptrace.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/uaccess.h>
-#include <linux/version.h>
 
 #if defined(CONFIG_ARM64) && !defined(PT_REGS_PARM1)
 #define PT_REGS_PARM1(regs) ((regs)->regs[0])
-#define PT_REGS_PARM2(regs) ((regs)->regs[1])
 #define PT_REGS_PARM3(regs) ((regs)->regs[2])
 #endif
 
