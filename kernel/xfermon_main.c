@@ -4,15 +4,6 @@
 
 #include "xfermon.h"
 
-/* Count writes to all block devices, not just removable */
-bool include_all_devices;
-
-/* module_param: load-time or sysfs-tunable parameter (mode 0644 =
- * world-readable) */
-module_param(include_all_devices, bool, 0644);
-MODULE_PARM_DESC(include_all_devices,
-                 "Count writes to all block-backed filesystems for VM testing");
-
 /* Alert threshold in MB over 60 seconds */
 uint alert_threshold_mb = 100;
 
@@ -43,12 +34,9 @@ static int __init xfermon_init(void) {
     return ret;
   }
 
-  printk(
-      KERN_INFO
-      "xfermon: module loaded device=/dev/%s mode=%s alert_threshold_mb=%u\n",
-      XFERMON_DEVICE_NAME,
-      include_all_devices ? "all-devices-test" : "removable-only",
-      alert_threshold_mb);
+  printk(KERN_INFO
+         "xfermon: module loaded device=/dev/%s alert_threshold_mb=%u\n",
+         XFERMON_DEVICE_NAME, alert_threshold_mb);
   return 0;
 }
 

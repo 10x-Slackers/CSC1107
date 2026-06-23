@@ -7,7 +7,7 @@ kernel events with `printk()`, and raises alerts for large copy activity.
 
 ## Project Files
 
-- `kernel/xfermon.c`: kernel module and character device driver.
+- `kernel/xfermon_*.c` and `kernel/xfermon.h`: kernel module and character device driver (split across xfermon_main.c, xfermon_stats.c, xfermon_detect.c, xfermon_probe.c, xfermon_dev.c).
 - `kernel/Makefile`: builds `kernel/xfermon.ko`.
 - `userspace/xfermonctl.c`: user-space app that communicates with
   `/dev/xfermon` using `open()`, `read()`, `write()`, and `close()`.
@@ -39,7 +39,7 @@ The kernel module:
 - finds the backing block device for file writes;
 - records transfer count, byte count, alerts, and recent events;
 - filters to removable block devices in normal mode;
-- supports `include_all_devices=1` for simulator and VM testing;
+
 - logs kernel events with `printk()`.
 
 The user-space application supports:
@@ -47,7 +47,6 @@ The user-space application supports:
 ```sh
 ./userspace/xfermonctl stats
 ./userspace/xfermonctl watch 1
-sudo ./userspace/xfermonctl simulate 1048576 testdisk
 sudo ./userspace/xfermonctl reset
 ```
 
@@ -165,14 +164,11 @@ Expected `xfermonctl stats` output:
 
 ```text
 status: active
-mode: removable-only
 transfers: 1
 bytes: 20971520
 alerts: 1
 alert_threshold_mb: 10
 device_node: /dev/xfermon
-removable_detection: gendisk-removable-flag
-byte_accounting: requested_vfs_write_bytes
 recent_events:
   #1 age=0s device=sda bytes=20971520 reason=removable-write
 ```
@@ -183,7 +179,7 @@ into multiple write operations.
 Expected `dmesg` output:
 
 ```text
-xfermon: module loaded device=/dev/xfermon mode=removable-only alert_threshold_mb=10
+xfermon: module loaded device=/dev/xfermon alert_threshold_mb=10
 xfermon: write device=sda bytes=... reason=removable-write
 xfermon: alert possible mass-copy behavior bytes_60s=...
 xfermon: module unloaded
@@ -192,12 +188,6 @@ xfermon: module unloaded
 ## Demo Script
 
 Use the Bash script for a shorter repeatable demo.
-
-Simulator test:
-
-```sh
-bash scripts/demo.sh simulate
-```
 
 Real USB test:
 
@@ -209,35 +199,9 @@ The script builds the project, loads the module, resets stats, performs the
 test, shows `/dev/xfermon` stats, shows recent `dmesg` logs, and unloads the
 module.
 
-## If USB Detection Does Not Increase Stats
-
-First confirm Linux sees the USB as removable:
-
-```sh
-lsblk
-```
-
-Look for `RM` as `1` and a mount path such as `/media/linco/FELICE`.
-
-Then run the all-device test mode:
-
-```sh
-sudo insmod kernel/xfermon.ko include_all_devices=1 alert_threshold_mb=10
-sudo ./userspace/xfermonctl reset
-dd if=/dev/zero of=/tmp/xfermon-test.bin bs=1M count=20
-sync
-./userspace/xfermonctl stats
-sudo dmesg | tail -30
-sudo rmmod xfermon
-```
-
-If this works, the write hook and character device are working. The issue is
-only the removable-device filter, which depends on how the kernel marks the
-backing disk.
-
 ## Requirement Mapping
 
-- Linux kernel module development: `kernel/xfermon.c` builds into
+- Linux kernel module development: `kernel/xfermon_*.c` and `kernel/xfermon.h` build into
   `kernel/xfermon.ko`.
 - Character device driver creation: the module creates `/dev/xfermon`.
 - Communication between user-space and kernel-space: `xfermonctl` reads and
@@ -280,6 +244,6 @@ Then we remove the module using rmmod.
 - Removable-device detection depends on how the Linux kernel marks the disk, so
   real USB detection can vary across adapters, kernels, and mount
   configurations.
-- `include_all_devices=1` is for simulator and VM testing only.
+
 - The final acceptance test should be done on Raspberry Pi 4 with a real USB
   thumb drive.
