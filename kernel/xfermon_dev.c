@@ -30,18 +30,14 @@ static ssize_t xfermon_read(struct file *file, char __user *buffer,
 
   len += scnprintf(output + len, PAGE_SIZE - len,
                    "status: active\n"
-                   "mode: %s\n"
                    "transfers: %llu\n"
                    "bytes: %llu\n"
                    "alerts: %llu\n"
                    "alert_threshold_mb: %u\n"
                    "device_node: /dev/%s\n"
-                   "removable_detection: gendisk-removable-flag\n"
-                   "byte_accounting: requested_vfs_write_bytes\n"
                    "uptime_seconds: %lu\n"
-                   "commands: reset | simulate <bytes> [device]\n"
+                   "commands: reset\n"
                    "recent_events:\n",
-                   include_all_devices ? "all-devices-test" : "removable-only",
                    atomic64_read(&transfer_count),
                    atomic64_read(&transfer_bytes), atomic64_read(&alert_count),
                    alert_threshold_mb, XFERMON_DEVICE_NAME, uptime_seconds);
@@ -72,15 +68,11 @@ static ssize_t xfermon_read(struct file *file, char __user *buffer,
 }
 
 /**
- * handle userspace commands (reset, simulate).
+ * handle userspace commands (reset).
  */
 static ssize_t xfermon_write(struct file *file, const char __user *buffer,
                              size_t count, loff_t *pos) {
   char input[XFERMON_INPUT_MAX];
-  char command[16] = {0};
-  char device[XFERMON_DEVICE_LEN] = "simulated";
-  u64 bytes;
-  int matched;
 
   if (count == 0 || count >= XFERMON_INPUT_MAX) {
     return -EINVAL;
@@ -98,12 +90,6 @@ static ssize_t xfermon_write(struct file *file, const char __user *buffer,
   if (sysfs_streq(input, "reset")) {
     xfermon_reset();
     printk(KERN_INFO "xfermon: statistics reset\n");
-    return count;
-  }
-
-  matched = sscanf(input, "%15s %llu %31s", command, &bytes, device);
-  if (matched >= 2 && strcmp(command, "simulate") == 0) {
-    xfermon_add_event(bytes, device, "manual-simulate");
     return count;
   }
 

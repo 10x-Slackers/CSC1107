@@ -31,13 +31,12 @@ int xfermon_vfs_write_pre(struct kprobe *probe, struct pt_regs *regs) {
   }
 
   is_removable = xfermon_disk_is_removable(disk);
-  if (!include_all_devices && !is_removable) {
+  if (!is_removable) {
     return 0;
   }
 
   device = disk->disk_name[0] ? disk->disk_name : "unknown";
-  xfermon_add_event((u64)bytes, device,
-                    is_removable ? "removable-write" : "test-write");
+  xfermon_add_event((u64)bytes, device, "removable-write");
   return 0;
 }
 

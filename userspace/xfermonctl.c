@@ -100,9 +100,9 @@ static int send_command(const char *command) {
 
   if (write_all(fd, buffer, (size_t)length) < 0) {
     char message[160];
-    int message_length = snprintf(message, sizeof(message),
-                                  "xfermonctl: failed to send command: %s\n",
-                                  strerror(errno));
+    int message_length =
+        snprintf(message, sizeof(message),
+                 "xfermonctl: failed to send command: %s\n", strerror(errno));
 
     if (message_length > 0) {
       write_all(STDERR_FILENO, message, (size_t)message_length);
@@ -115,33 +115,14 @@ static int send_command(const char *command) {
   return 0;
 }
 
-static int simulate_transfer(const char *bytes, const char *device) {
-  char command[128];
-  char *end;
-  unsigned long long value;
-
-  errno = 0;
-  value = strtoull(bytes, &end, 10);
-  if (errno || end == bytes || *end != '\0' || value == 0) {
-    write_cstr(STDERR_FILENO,
-               "xfermonctl: simulated bytes must be a positive number.\n");
-    return 1;
-  }
-
-  snprintf(command, sizeof(command), "simulate %llu %s", value, device);
-  return send_command(command);
-}
-
 static void print_usage(const char *program) {
   char message[512];
-  int length =
-      snprintf(message, sizeof(message),
-               "Usage:\n"
-               "  %s stats\n"
-               "  %s watch <seconds>\n"
-               "  sudo %s simulate <bytes> [device]\n"
-               "  sudo %s reset\n",
-               program, program, program, program);
+  int length = snprintf(message, sizeof(message),
+                        "Usage:\n"
+                        "  %s stats\n"
+                        "  %s watch <seconds>\n"
+                        "  sudo %s reset\n",
+                        program, program, program);
 
   if (length > 0) {
     write_all(STDERR_FILENO, message, (size_t)length);
@@ -177,17 +158,6 @@ int main(int argc, char **argv) {
       write_cstr(STDOUT_FILENO, "\n");
       sleep((unsigned int)seconds);
     }
-  }
-
-  if (strcmp(argv[1], "simulate") == 0) {
-    const char *device = argc >= 4 ? argv[3] : "simulated";
-
-    if (argc < 3 || argc > 4) {
-      print_usage(argv[0]);
-      return 1;
-    }
-
-    return simulate_transfer(argv[2], device);
   }
 
   if (strcmp(argv[1], "reset") == 0) {

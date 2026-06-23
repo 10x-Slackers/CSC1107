@@ -41,7 +41,6 @@ extern spinlock_t event_lock;
 extern struct xfermon_event events[];
 extern unsigned int event_next;
 extern unsigned int event_total;
-extern bool include_all_devices;
 extern uint alert_threshold_mb;
 
 void xfermon_add_event(u64 bytes, const char *device, const char *reason);
