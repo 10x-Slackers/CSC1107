@@ -36,7 +36,7 @@ int xfermon_vfs_write_pre(struct kprobe *probe, struct pt_regs *regs) {
   }
 
   device = disk->disk_name[0] ? disk->disk_name : "unknown";
-  xfermon_add_event((u64)bytes, device, "removable-write");
+  xfermon_add_event((u64)bytes, device);
   return 0;
 }
 
