@@ -170,7 +170,7 @@ alerts: 1
 alert_threshold_mb: 10
 device_node: /dev/xfermon
 recent_events:
-  #1 age=0s device=sda bytes=20971520 reason=removable-write
+  #1 age=0s device=sda bytes=20971520
 ```
 
 The transfer count may be more than `1` because Linux can split one file copy
@@ -180,7 +180,7 @@ Expected `dmesg` output:
 
 ```text
 xfermon: module loaded device=/dev/xfermon alert_threshold_mb=10
-xfermon: write device=sda bytes=... reason=removable-write
+xfermon: write device=sda bytes=...
 xfermon: alert possible mass-copy behavior bytes_60s=...
 xfermon: module unloaded
 ```

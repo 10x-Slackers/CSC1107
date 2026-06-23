@@ -23,7 +23,7 @@ unsigned int event_total;
 /**
  * record a write event and check the 60s alert window.
  */
-void xfermon_add_event(u64 bytes, const char *device, const char *reason) {
+void xfermon_add_event(u64 bytes, const char *device) {
   unsigned long flags;
   u64 alert_threshold_bytes = (u64)alert_threshold_mb * 1024 * 1024;
   struct xfermon_event *event;
@@ -40,7 +40,6 @@ void xfermon_add_event(u64 bytes, const char *device, const char *reason) {
   event->bytes = bytes;
   event->timestamp = jiffies;
   strscpy(event->device, device, sizeof(event->device));
-  strscpy(event->reason, reason, sizeof(event->reason));
 
   event_next = (event_next + 1) % XFERMON_LOG_COUNT;
   if (event_total < XFERMON_LOG_COUNT) {
@@ -65,8 +64,7 @@ void xfermon_add_event(u64 bytes, const char *device, const char *reason) {
 
   spin_unlock_irqrestore(&event_lock, flags);
 
-  printk(KERN_INFO "xfermon: write device=%s bytes=%llu reason=%s\n", device,
-         bytes, reason);
+  printk(KERN_INFO "xfermon: write device=%s bytes=%llu\n", device, bytes);
 }
 
 /**

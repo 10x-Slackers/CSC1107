@@ -52,9 +52,8 @@ static ssize_t xfermon_read(struct file *file, char __user *buffer,
         jiffies_to_msecs(jiffies - event->timestamp) / 1000;
 
     len += scnprintf(output + len, PAGE_SIZE - len,
-                     "  #%llu age=%lus device=%s bytes=%llu reason=%s\n",
-                     event->id, age_seconds, event->device, event->bytes,
-                     event->reason);
+                     "  #%llu age=%lus device=%s bytes=%llu\n", event->id,
+                     age_seconds, event->device, event->bytes);
   }
   spin_unlock_irqrestore(&event_lock, flags);
 

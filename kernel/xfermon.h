@@ -7,7 +7,6 @@
 #define XFERMON_INPUT_MAX 96
 #define XFERMON_LOG_COUNT 64
 #define XFERMON_DEVICE_LEN 32
-#define XFERMON_REASON_LEN 32
 
 /**
  * entry in the in-memory event ring buffer
@@ -17,7 +16,6 @@ struct xfermon_event {
   u64 bytes;
   unsigned long timestamp;
   char device[XFERMON_DEVICE_LEN];
-  char reason[XFERMON_REASON_LEN];
 };
 
 /* Fallback for arm64 trees missing the PT_REGS_PARM* macros */
@@ -43,7 +41,7 @@ extern unsigned int event_next;
 extern unsigned int event_total;
 extern uint alert_threshold_mb;
 
-void xfermon_add_event(u64 bytes, const char *device, const char *reason);
+void xfermon_add_event(u64 bytes, const char *device);
 void xfermon_reset(void);
 bool xfermon_disk_is_removable(struct gendisk *disk);
 struct gendisk *xfermon_file_disk(struct file *file);
