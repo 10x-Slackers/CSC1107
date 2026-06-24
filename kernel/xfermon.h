@@ -18,7 +18,7 @@ struct xfermon_event {
   char device[XFERMON_DEVICE_LEN];
 };
 
-/* Fallback for arm64 trees missing the PT_REGS_PARM* macros */
+/* fallback for arm64 trees missing the PT_REGS_PARM* macros */
 #if defined(CONFIG_ARM64) && !defined(PT_REGS_PARM1)
 #define PT_REGS_PARM1(regs) ((regs)->regs[0])
 #define PT_REGS_PARM3(regs) ((regs)->regs[2])
