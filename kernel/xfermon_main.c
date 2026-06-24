@@ -4,7 +4,7 @@
 
 #include "xfermon.h"
 
-/* Alert threshold in MB over 60 seconds */
+/* alert threshold in MB over 60 seconds */
 uint alert_threshold_mb = 100;
 
 /* module_param: exposes /sys/module/xfermon/parameters/alert_threshold_mb */
@@ -18,7 +18,6 @@ MODULE_PARM_DESC(alert_threshold_mb,
 static int __init xfermon_init(void) {
   int ret;
 
-  /* jiffies: kernel tick counter, increments HZ times per second */
   started_at = jiffies;
   xfermon_reset();
 
@@ -29,7 +28,6 @@ static int __init xfermon_init(void) {
 
   ret = xfermon_probe_init();
   if (ret) {
-    /* Roll back device registration on probe failure */
     xfermon_dev_exit();
     return ret;
   }

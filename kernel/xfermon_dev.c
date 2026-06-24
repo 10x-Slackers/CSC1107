@@ -20,14 +20,13 @@ static ssize_t xfermon_read(struct file *file, char __user *buffer,
   size_t len = 0;
   int i;
 
-  /* kzalloc: kernel heap allocation (GFP_KERNEL allows sleeping) */
+  /* allocate a PAGE_SIZE scratch buffer for the output */
   output = kzalloc(PAGE_SIZE, GFP_KERNEL);
   if (!output) {
     return -ENOMEM;
   }
 
   uptime_seconds = jiffies_to_msecs(jiffies - started_at) / 1000;
-
   len += scnprintf(output + len, PAGE_SIZE - len,
                    "status: active\n"
                    "transfers: %llu\n"
@@ -42,12 +41,14 @@ static ssize_t xfermon_read(struct file *file, char __user *buffer,
                    atomic64_read(&transfer_bytes), atomic64_read(&alert_count),
                    alert_threshold_mb, XFERMON_DEVICE_NAME, uptime_seconds);
 
-  /* Walk the ring oldest-first */
   spin_lock_irqsave(&event_lock, flags);
+  /* walk the ring oldest-first, stop when tail room is exhausted */
   for (i = 0; i < event_total && len < PAGE_SIZE - 128; i++) {
+    /* convert i into actual array index in the circular buffer */
     unsigned int index =
         (event_next + XFERMON_LOG_COUNT - event_total + i) % XFERMON_LOG_COUNT;
     struct xfermon_event *event = &events[index];
+
     unsigned long age_seconds =
         jiffies_to_msecs(jiffies - event->timestamp) / 1000;
 
@@ -57,6 +58,7 @@ static ssize_t xfermon_read(struct file *file, char __user *buffer,
   }
   spin_unlock_irqrestore(&event_lock, flags);
 
+  /* empty history placeholder */
   if (event_total == 0 && len < PAGE_SIZE - 32) {
     len += scnprintf(output + len, PAGE_SIZE - len, "  none\n");
   }
