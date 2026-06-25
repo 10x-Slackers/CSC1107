@@ -5,7 +5,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODULE="$ROOT_DIR/kernel/xfermon.ko"
 CTL="$ROOT_DIR/userspace/xfermonctl"
-TEST_FILE="/tmp/20mb.bin"
 USB_PATH="${1:-}"
 
 if [[ -z "$USB_PATH" || ! -d "$USB_PATH" ]]; then
@@ -22,7 +21,7 @@ step() { sleep 2; echo; echo "[STAGE] $*"; sleep 1; }
 
 # Build
 step "build"
-make -C "$ROOT_DIR" clean
+make -C "$ROOT_DIR" clean > /dev/null
 make -C "$ROOT_DIR"
 
 # Load the module
@@ -33,7 +32,7 @@ insmod "$MODULE"
 # Verify loaded module
 step "module status"
 lsmod | grep xfermon
-dmesg | tail
+dmesg | tail -n 5
 ls -l /dev/xfermon
 
 # USB drive verification
@@ -46,11 +45,12 @@ step "print stats (read from driver)"
 
 # File transfer test
 step "copy file to USB"
-dd if=/dev/zero of="$TEST_FILE" bs=1M count=20 status=none
-cp "$TEST_FILE" "$USB_PATH/20mb.bin"
+TEST_FILE="/tmp/2mb.bin"
+dd if=/dev/zero of="$TEST_FILE" bs=1M count=2 status=none
+cp "$TEST_FILE" "$USB_PATH/2mb.bin"
 sync
 "$CTL" stats
-dmesg | tail -n 10
+dmesg | tail -n 5
 
 # Write to the driver
 step "reset stats (write to driver)"
