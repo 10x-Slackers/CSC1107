@@ -4,7 +4,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-OUTPUT_DIR="${SCRIPT_DIR}/pi-kernel"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+OUTPUT_DIR="${REPO_ROOT}/pi-kernel"
 PI_KERNEL_VERSION="${1:-}"
 PI_HOST="${2:-}"
 
