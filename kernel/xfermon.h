@@ -5,8 +5,8 @@
 
 #define XFERMON_DEVICE_NAME "xfermon"
 #define XFERMON_INPUT_MAX 96
-#define XFERMON_LOG_COUNT 64
-#define XFERMON_DEVICE_LEN 32
+#define XFERMON_LOG_COUNT 32
+#define XFERMON_DEVICE_LEN 16
 
 /**
  * entry in the in-memory event ring buffer
