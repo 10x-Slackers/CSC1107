@@ -18,7 +18,7 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   exit 1
 fi
 
-step() { echo; echo "[STAGE] $*"; }
+step() { echo; echo "[STAGE] $*"; sleep 2; }
 
 # Build
 step "build"
@@ -59,7 +59,7 @@ step "reset stats (write to driver)"
 
 # Live monitoring
 step "live monitoring function"
-timeout 4 "$CTL" watch 1 || true
+timeout 2 "$CTL" watch 1 || true
 
 # Error handling
 step "error handling (reading before load)"
@@ -68,7 +68,7 @@ rmmod xfermon
 
 step "error handling (non-root write)"
 insmod "$MODULE"
-"$CTL" reset || true
+sudo -u nobody "$CTL" reset || true
 
 # Mass-copy alert
 step "mass-copy alert (advanced feature)"
@@ -93,4 +93,4 @@ insmod "$MODULE" alert_threshold_mb=5
 rmmod xfermon 2>/dev/null || true
 lsmod | grep xfermon || true
 ls -l /dev/xfermon 2>&1 || true
-dmesg | tail
+dmesg | tail -n 5
