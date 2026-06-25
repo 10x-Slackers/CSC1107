@@ -109,7 +109,7 @@ static struct miscdevice xfermon_misc_device = {
     .minor = MISC_DYNAMIC_MINOR,
     .name = XFERMON_DEVICE_NAME,
     .fops = &xfermon_fops,
-    .mode = 0666,
+    .mode = 0644,
 };
 
 /**
