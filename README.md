@@ -6,21 +6,29 @@ Linux kernel module for tracking USB file transfer activity.
 
 ## Project Scope
 
-Project 15 asks for a driver that monitors file transfer activity to removable
-USB storage devices.
-
-Current milestone:
-
-- Kernel module loads and unloads cleanly.
-- Kernel module creates a character device node at `/dev/xfermon`.
-- User-space tool reads and writes `/dev/xfermon` using direct `open()`,
-  `read()`, `write()`, and `close()` system calls.
-- Bash demo automation is provided in `scripts/demo.sh`.
-
-Next milestone:
-
-- Test on Raspberry Pi 4 with a real USB thumb drive.
-- Confirm whether the Pi kernel marks the target USB device as removable.
+- [`kernel/xfermon_main.c`](kernel/xfermon_main.c)
+  - module init/exit and the `alert_threshold_mb` runtime parameter
+- [`kernel/xfermon_probe.c`](kernel/xfermon_probe.c)
+  - kprobes on `vfs_write()`/`splice_write()`
+  - records writes to removable disks
+- [`kernel/xfermon_detect.c`](kernel/xfermon_detect.c)
+  - checks `GENHD_FL_REMOVABLE` flag for removable disks
+  - resolves `file -> gendisk`
+- [`kernel/xfermon_stats.c`](kernel/xfermon_stats.c)
+  - atomic counters
+  - event ring buffer
+  - 60-second mass-copy alert window
+- [`kernel/xfermon_dev.c`](kernel/xfermon_dev.c)
+  - `/dev/xfermon` misc char device
+  - `read()` for stats
+  - `write()` for reset
+- [`userspace/xfermonctl.c`](userspace/xfermonctl.c)
+  - CLI front end (`stats`, `reset`, `watch`)
+  - Uses raw `open()`/`read()`/`write()`/`close()` on `/dev/xfermon`
+- [`scripts/demo.sh`](scripts/demo.sh)
+  - end-to-end demo walkthrough on a Pi 4
+- [`scripts/get-pi-headers.sh`](scripts/get-pi-headers.sh)
+  - fetch and prepare RPi kernel headers for cross-compilation
 
 ## Usage
 
@@ -30,16 +38,16 @@ For a step-by-step build, test, and demo guide, see
 ### Cross-compilation
 
 ```sh
-./get-pi-headers.sh [PI_KERNEL_VERSION] [PI_HOST]
+./scripts/get-pi-headers.sh [PI_KERNEL_VERSION] [PI_HOST]
 
 make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KERNELDIR=/workspaces/CSC1107/pi-kernel
 ```
 
-- `./get-pi-headers.sh`
+- `./scripts/get-pi-headers.sh`
   - clone the script's default Raspberry Pi kernel branch and use Pi 4 default config
-- `./get-pi-headers.sh 6.18.34`
+- `./scripts/get-pi-headers.sh 6.18.34`
   - clone specific version branch
-- `./get-pi-headers.sh 6.18.34 pi@192.168.1.10`
+- `./scripts/get-pi-headers.sh 6.18.34 pi@192.168.1.10`
   - also scp .config from Pi for exact match
 
 ## Getting Started
