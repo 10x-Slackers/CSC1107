@@ -18,7 +18,7 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   exit 1
 fi
 
-step() { sleep 2; echo; echo "[STAGE] $*"; sleep 0.5; }
+step() { sleep 2; echo; echo "[STAGE] $*"; sleep 1; }
 
 # Build
 step "build"
@@ -68,7 +68,12 @@ rmmod xfermon
 
 step "error handling (non-root write)"
 insmod "$MODULE"
-sudo -u nobody "$CTL" reset || true
+# Stage the binary in /tmp so "nobody" can exec it
+NOBODY_CTL=/tmp/xfermonctl
+cp "$CTL" "$NOBODY_CTL"
+chmod 755 "$NOBODY_CTL"
+sudo -u nobody "$NOBODY_CTL" reset || true
+rm -f "$NOBODY_CTL"
 
 # Mass-copy alert
 step "mass-copy alert (advanced feature)"
@@ -81,7 +86,7 @@ cp -r "$MASS_SRC" "$USB_PATH/mass-copy"
 rm -rf "$MASS_SRC"
 sync
 "$CTL" stats | head
-dmesg | grep -i "xfermon: alert" || true
+dmesg | grep -i "xfermon: alert" | tail -n 1 || true
 
 # Threshold tuning
 step "alert threshold tuning"
@@ -92,4 +97,3 @@ insmod "$MODULE" alert_threshold_mb=5
 # Teardown
 rmmod xfermon 2>/dev/null || true
 ls -l /dev/xfermon 2> /dev/null|| true
-dmesg | tail -n 5
