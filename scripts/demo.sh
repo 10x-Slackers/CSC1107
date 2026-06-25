@@ -18,7 +18,7 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   exit 1
 fi
 
-step() { echo; echo "[STAGE] $*"; sleep 2; }
+step() { sleep 2; echo; echo "[STAGE] $*"; sleep 0.5; }
 
 # Build
 step "build"
@@ -33,7 +33,7 @@ insmod "$MODULE"
 # Verify loaded module
 step "module status"
 lsmod | grep xfermon
-dmesg | tail -n 20
+dmesg | tail
 ls -l /dev/xfermon
 
 # USB drive verification
@@ -59,7 +59,7 @@ step "reset stats (write to driver)"
 
 # Live monitoring
 step "live monitoring function"
-timeout 2 "$CTL" watch 1 || true
+timeout 3 "$CTL" watch 1 || true
 
 # Error handling
 step "error handling (reading before load)"
@@ -80,8 +80,8 @@ done
 cp -r "$MASS_SRC" "$USB_PATH/mass-copy"
 rm -rf "$MASS_SRC"
 sync
-"$CTL" stats
-dmesg | tail -n 10
+"$CTL" stats | head
+dmesg | grep -i "xfermon: alert" || true
 
 # Threshold tuning
 step "alert threshold tuning"
@@ -91,6 +91,5 @@ insmod "$MODULE" alert_threshold_mb=5
 
 # Teardown
 rmmod xfermon 2>/dev/null || true
-lsmod | grep xfermon || true
-ls -l /dev/xfermon 2>&1 || true
+ls -l /dev/xfermon 2> /dev/null|| true
 dmesg | tail -n 5
