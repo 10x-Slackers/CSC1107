@@ -21,11 +21,14 @@ struct xfermon_event {
 /* fallback for arm64 trees missing the PT_REGS_PARM* macros */
 #if defined(CONFIG_ARM64) && !defined(PT_REGS_PARM1)
 #define PT_REGS_PARM1(regs) ((regs)->regs[0])
+#define PT_REGS_PARM2(regs) ((regs)->regs[1])
 #define PT_REGS_PARM3(regs) ((regs)->regs[2])
+#define PT_REGS_PARM4(regs) ((regs)->regs[3])
 #endif
 
-/* runtime instrumentation hook that traps a kernel function */
+/* runtime instrumentation hooks that trap kernel write paths */
 extern struct kprobe vfs_write_probe;
+extern struct kprobe splice_write_probe;
 /* lock-free 64-bit counter safe on all CPUs */
 extern atomic64_t transfer_count;
 extern atomic64_t transfer_bytes;
@@ -46,6 +49,7 @@ void xfermon_reset(void);
 bool xfermon_disk_is_removable(struct gendisk *disk);
 struct gendisk *xfermon_file_disk(struct file *file);
 int xfermon_vfs_write_pre(struct kprobe *probe, struct pt_regs *regs);
+int xfermon_splice_write_pre(struct kprobe *probe, struct pt_regs *regs);
 int xfermon_probe_init(void);
 void xfermon_probe_exit(void);
 int xfermon_dev_init(void);

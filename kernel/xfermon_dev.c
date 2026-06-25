@@ -35,14 +35,13 @@ static ssize_t xfermon_read(struct file *file, char __user *buffer,
                    "alert_threshold_mb: %u\n"
                    "device_node: /dev/%s\n"
                    "uptime_seconds: %lu\n"
-                   "commands: reset\n"
                    "recent_events:\n",
                    atomic64_read(&transfer_count),
                    atomic64_read(&transfer_bytes), atomic64_read(&alert_count),
                    alert_threshold_mb, XFERMON_DEVICE_NAME, uptime_seconds);
 
   spin_lock_irqsave(&event_lock, flags);
-  /* walk the ring oldest-first, stop when tail room is exhausted */
+  /* walk the event ring oldest-first, stop when tail room is exhausted */
   for (i = 0; i < event_total && len < PAGE_SIZE - 128; i++) {
     /* convert i into actual array index in the circular buffer */
     unsigned int index =
