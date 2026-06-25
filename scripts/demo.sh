@@ -73,10 +73,15 @@ insmod "$MODULE"
 # Mass-copy alert
 step "mass-copy alert (advanced feature)"
 "$CTL" reset
-cp -r /usr/include "$USB_PATH/"
+MASS_SRC="$(mktemp -d)"
+for i in $(seq 1 6); do
+  dd if=/dev/zero of="$MASS_SRC/blob-$i.bin" bs=1M count=10 status=none
+done
+cp -r "$MASS_SRC" "$USB_PATH/mass-copy"
+rm -rf "$MASS_SRC"
 sync
 "$CTL" stats
-dmesg | tail -n 30
+dmesg | tail -n 10
 
 # Threshold tuning
 step "alert threshold tuning"
