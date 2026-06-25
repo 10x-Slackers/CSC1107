@@ -20,7 +20,7 @@ static ssize_t xfermon_read(struct file *file, char __user *buffer,
   size_t len = 0;
   int i;
 
-  /* allocate a PAGE_SIZE scratch buffer for the output */
+  /* allocate a PAGE_SIZE buffer for the output */
   output = kzalloc(PAGE_SIZE, GFP_KERNEL);
   if (!output) {
     return -ENOMEM;
@@ -68,7 +68,7 @@ static ssize_t xfermon_read(struct file *file, char __user *buffer,
 }
 
 /**
- * handle userspace commands (reset).
+ * handle reset command from userspace
  */
 static ssize_t xfermon_write(struct file *file, const char __user *buffer,
                              size_t count, loff_t *pos) {
