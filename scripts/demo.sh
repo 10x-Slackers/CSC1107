@@ -1,101 +1,91 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MODULE_PATH="$ROOT_DIR/kernel/xfermon.ko"
-CTL_PATH="$ROOT_DIR/userspace/xfermonctl"
-TEST_FILE="/tmp/xfermon-demo-20mb.bin"
+MODULE="$ROOT_DIR/kernel/xfermon.ko"
+CTL="$ROOT_DIR/userspace/xfermonctl"
+TEST_FILE="/tmp/20mb.bin"
+USB_PATH="${1:-}"
 
-if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-  SUDO=""
-else
-  SUDO="sudo"
+if [[ -z "$USB_PATH" || ! -d "$USB_PATH" ]]; then
+  echo "usage: bash scripts/demo.sh <usb-mount-path>"
+  exit 1
 fi
 
-usage() {
-  cat <<USAGE
-Usage:
-  bash scripts/demo.sh usb <mounted-usb-path>
+if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+  echo "demo: must be run as root"
+  exit 1
+fi
 
-Modes:
-  usb       Build, load in removable-only mode, copy a test file to the USB
-            mount path, show /dev stats and kernel logs.
-USAGE
-}
+step() { echo; echo "[STAGE] $*"; }
 
-require_command() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "demo: missing required command: $1" >&2
-    exit 1
-  fi
-}
+# Build
+step "build"
+make -C "$ROOT_DIR" clean
+make -C "$ROOT_DIR"
 
-module_loaded() {
-  lsmod | awk '{print $1}' | grep -qx "xfermon"
-}
+# Load the module
+step "load module"
+rmmod xfermon 2>/dev/null || true
+insmod "$MODULE"
 
-unload_module() {
-  if module_loaded; then
-    $SUDO rmmod xfermon
-  fi
-}
+# Verify loaded module
+step "module status"
+lsmod | grep xfermon
+dmesg | tail -n 20
+ls -l /dev/xfermon
 
-build_project() {
-  require_command make
-  make -C "$ROOT_DIR"
-}
+# USB drive verification
+step "USB drive"
+lsblk
 
-load_module() {
-  unload_module
-  $SUDO insmod "$MODULE_PATH" "$@"
-}
+# Read from the driver
+step "print stats (read from driver)"
+"$CTL" stats
 
-show_status() {
-  echo
-  echo "== /dev/xfermon =="
-  "$CTL_PATH" stats
-  echo
-  echo "== Recent kernel logs =="
-  $SUDO dmesg | tail -n 30
-}
+# File transfer test
+step "copy file to USB"
+dd if=/dev/zero of="$TEST_FILE" bs=1M count=20 status=none
+cp "$TEST_FILE" "$USB_PATH/20mb.bin"
+sync
+"$CTL" stats
+dmesg | tail -n 10
 
-run_usb_demo() {
-  local usb_path="$1"
+# Write to the driver
+step "reset stats (write to driver)"
+"$CTL" reset
+"$CTL" stats
 
-  if [[ ! -d "$usb_path" ]]; then
-    echo "demo: USB mount path does not exist: $usb_path" >&2
-    echo "demo: run lsblk and use a path like /media/$USER/USB_NAME" >&2
-    exit 1
-  fi
+# Live monitoring
+step "live monitoring function"
+timeout 4 "$CTL" watch 1 || true
 
-  build_project
-  load_module alert_threshold_mb=10
-  $SUDO "$CTL_PATH" reset
+# Error handling
+step "error handling (reading before load)"
+rmmod xfermon
+"$CTL" stats || true
 
-  echo "== Creating 20 MiB test file =="
-  dd if=/dev/zero of="$TEST_FILE" bs=1M count=20 status=none
+step "error handling (non-root write)"
+insmod "$MODULE"
+"$CTL" reset || true
 
-  echo "== Copying test file to USB mount path =="
-  cp "$TEST_FILE" "$usb_path/xfermon-demo-20mb.bin"
-  sync
+# Mass-copy alert
+step "mass-copy alert (advanced feature)"
+"$CTL" reset
+cp -r /usr/include "$USB_PATH/"
+sync
+"$CTL" stats
+dmesg | tail -n 30
 
-  show_status
-  unload_module
-}
+# Threshold tuning
+step "alert threshold tuning"
+rmmod xfermon 2>/dev/null || true
+insmod "$MODULE" alert_threshold_mb=5
+"$CTL" stats
 
-case "${1:-}" in
-  usb)
-    if [[ $# -ne 2 ]]; then
-      usage
-      exit 1
-    fi
-    run_usb_demo "$2"
-    ;;
-  -h|--help|help)
-    usage
-    ;;
-  *)
-    usage
-    exit 1
-    ;;
-esac
+# Teardown
+rmmod xfermon 2>/dev/null || true
+lsmod | grep xfermon || true
+ls -l /dev/xfermon 2>&1 || true
+dmesg | tail
