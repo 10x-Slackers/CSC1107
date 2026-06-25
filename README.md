@@ -2,53 +2,23 @@
 
 Linux kernel module for tracking USB file transfer activity.
 
----
-
 ## Project Scope
 
-- [`kernel/xfermon_main.c`](kernel/xfermon_main.c)
-  - module init/exit and the `alert_threshold_mb` runtime parameter
-- [`kernel/xfermon_probe.c`](kernel/xfermon_probe.c)
-  - kprobes on `vfs_write()`/`splice_write()`
-  - records writes to removable disks
-- [`kernel/xfermon_detect.c`](kernel/xfermon_detect.c)
-  - checks `GENHD_FL_REMOVABLE` flag for removable disks
-  - resolves `file -> gendisk`
-- [`kernel/xfermon_stats.c`](kernel/xfermon_stats.c)
-  - atomic counters
-  - event ring buffer
-  - 60-second mass-copy alert window
-- [`kernel/xfermon_dev.c`](kernel/xfermon_dev.c)
-  - `/dev/xfermon` misc char device
-  - `read()` for stats
-  - `write()` for reset
-- [`userspace/xfermonctl.c`](userspace/xfermonctl.c)
-  - CLI front end (`stats`, `reset`, `watch`)
-  - Uses raw `open()`/`read()`/`write()`/`close()` on `/dev/xfermon`
+Refer to [`docs/OVERVIEW.md`](docs/OVERVIEW.md) for an in-depth overview.
+
+- [`kernel/`](kernel/)
+  - Linux kernel module source code
+- [`userspace/`](userspace/)
+  - User-space program source code
+  - CLI program to interface with the kernel module
 - [`scripts/demo.sh`](scripts/demo.sh)
-  - end-to-end demo walkthrough on a Pi 4
+  - End-to-end automated demo on a Pi 4 with a USB drive
 - [`scripts/get-pi-headers.sh`](scripts/get-pi-headers.sh)
-  - fetch and prepare RPi kernel headers for cross-compilation
+  - Fetch and prepare RPi kernel headers for cross-compilation
 
 ## Usage
 
-For a step-by-step build, test, and demo guide, see
-[`docs/PROJECT15_GUIDE.md`](docs/PROJECT15_GUIDE.md).
-
-### Cross-compilation
-
-```sh
-./scripts/get-pi-headers.sh [PI_KERNEL_VERSION] [PI_HOST]
-
-make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KERNELDIR=/workspaces/CSC1107/pi-kernel
-```
-
-- `./scripts/get-pi-headers.sh`
-  - clone the script's default Raspberry Pi kernel branch and use Pi 4 default config
-- `./scripts/get-pi-headers.sh 6.18.34`
-  - clone specific version branch
-- `./scripts/get-pi-headers.sh 6.18.34 pi@192.168.1.10`
-  - also scp .config from Pi for exact match
+For end-user usage on a Raspberry Pi, refer to [`docs/USAGE.md`](docs/USAGE.md).
 
 ## Getting Started
 
@@ -78,6 +48,21 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KERNELDIR=/workspaces/CSC1107/p
 
 3. Click on the "Re-open in Dev Container" prompt
 4. Start working!
+
+### Cross-compilation
+
+```sh
+./scripts/get-pi-headers.sh [PI_KERNEL_VERSION] [PI_HOST]
+
+make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KERNELDIR=/workspaces/CSC1107/pi-kernel
+```
+
+- `./scripts/get-pi-headers.sh`
+  - clone the script's default Raspberry Pi kernel branch and use Pi 4 default config
+- `./scripts/get-pi-headers.sh 6.18.34`
+  - clone specific version branch
+- `./scripts/get-pi-headers.sh 6.18.34 pi@192.168.1.10`
+  - copy the config from RPi for exact match
 
 ## Developer Tooling
 
