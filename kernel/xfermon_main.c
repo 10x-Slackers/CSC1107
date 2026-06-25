@@ -5,7 +5,7 @@
 #include "xfermon.h"
 
 /* alert threshold in MB over 60 seconds */
-uint alert_threshold_mb = 100;
+uint alert_threshold_mb = 50;
 
 /* module_param: exposes /sys/module/xfermon/parameters/alert_threshold_mb */
 module_param(alert_threshold_mb, uint, 0644);
