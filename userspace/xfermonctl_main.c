@@ -24,6 +24,11 @@ static void print_usage(const char *program) {
  * program entry point
  */
 int main(int argc, char **argv) {
+  if (argc < 2) {
+    print_usage(argv[0]);
+    return 1;
+  }
+
   if (strcmp(argv[1], "stats") == 0) {
     return print_stats();
   }
